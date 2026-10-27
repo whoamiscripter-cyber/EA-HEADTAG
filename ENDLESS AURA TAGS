@@ -17,7 +17,7 @@ local Username = player.Name
 local playerGui = player:WaitForChild("PlayerGui", 10) or player:FindFirstChildOfClass("PlayerGui")
 local CUSTOM_LOGO_ID = "rbxassetid://129299711445020"
 
-local ROOM = "EA-GLOBAL-CHAT"
+local ROOM = "EA-CHAT"
 local PASSWORD = "6xrxDelnel7@/:.4!"
 local ENDPOINT = "wss://chatroom.openfun.app/ws"
 
@@ -310,7 +310,7 @@ animLabel.MouseButton1Click:Connect(function()
     end
 end)
 
--- EA Chat UI Setup (Default ON)
+-- EA Chat UI Setup (Default Enabled)
 local ChatScreenGui = Instance.new("ScreenGui")
 ChatScreenGui.Name = "EndlessAuraChatUI"
 ChatScreenGui.ResetOnSpawn = false
@@ -320,11 +320,14 @@ ChatScreenGui.Parent = playerGui
 local ChatUIFrame = Instance.new("Frame")
 ChatUIFrame.Name = "ChatBarFrame"
 ChatUIFrame.Size = UDim2.new(0, 240, 0, 32)
-ChatUIFrame.Position = UDim2.new(0, 15, 1, -50)
+ChatUIFrame.Position = UDim2.new(0, 15, 0.85, 0)
 ChatUIFrame.BackgroundColor3 = Color3.fromRGB(15, 8, 10)
 ChatUIFrame.BackgroundTransparency = 0.3
 ChatUIFrame.BorderSizePixel = 0
 ChatUIFrame.Parent = ChatScreenGui
+
+local DragDetector = Instance.new("UIDragDetector")
+DragDetector.Parent = ChatUIFrame
 
 local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 6)
@@ -353,7 +356,7 @@ TextBox.Size = UDim2.new(1, -38, 1, -4)
 TextBox.Position = UDim2.new(0, 32, 0, 2)
 TextBox.BackgroundTransparency = 1
 TextBox.Font = Enum.Font.GothamMedium
-TextBox.PlaceholderText = "EA Global Chat (Type '/help' or '/Logs')"
+TextBox.PlaceholderText = "EA Chat (Type '/help' or '/Logs')"
 TextBox.PlaceholderColor3 = Color3.fromRGB(200, 100, 110)
 TextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 TextBox.TextSize = 10
@@ -379,11 +382,11 @@ TagCorner.Parent = TargetTag
 local UserMenu = Instance.new("Frame")
 UserMenu.Name = "UserMenu"
 UserMenu.Size = UDim2.new(0, 180, 0, 130)
-UserMenu.Position = UDim2.new(0, 15, 1, -185)
+UserMenu.Position = UDim2.new(0, 0, 1, 5)
 UserMenu.BackgroundColor3 = Color3.fromRGB(20, 8, 12)
 UserMenu.BackgroundTransparency = 0.15
 UserMenu.Visible = false
-UserMenu.Parent = ChatScreenGui
+UserMenu.Parent = ChatUIFrame
 
 local MenuCorner = Instance.new("UICorner")
 MenuCorner.CornerRadius = UDim.new(0, 6)
@@ -431,6 +434,9 @@ LogsFrame.BackgroundTransparency = 0.1
 LogsFrame.BorderSizePixel = 0
 LogsFrame.Parent = LogsScreenGui
 
+local LogsDrag = Instance.new("UIDragDetector")
+LogsDrag.Parent = LogsFrame
+
 local LogsCorner = Instance.new("UICorner")
 LogsCorner.CornerRadius = UDim.new(0, 8)
 LogsCorner.Parent = LogsFrame
@@ -444,7 +450,7 @@ local LogsTitle = Instance.new("TextLabel")
 LogsTitle.Size = UDim2.new(1, -30, 0, 30)
 LogsTitle.Position = UDim2.new(0, 10, 0, 5)
 LogsTitle.BackgroundTransparency = 1
-LogsTitle.Text = "EA Global Chat Logs"
+LogsTitle.Text = "EA Chat Logs"
 LogsTitle.TextColor3 = Color3.fromRGB(255, 100, 120)
 LogsTitle.Font = Enum.Font.GothamBold
 LogsTitle.TextSize = 14
@@ -535,7 +541,7 @@ local function DisplayChatMessage(sender, message, isPrivate, targetUser)
     local sysColor = Color3.fromRGB(255, 80, 110)
 
     if isPrivate then
-        local targetName = targetUser or SelectedPrivateUser | "You"
+        local targetName = targetUser or SelectedPrivateUser or "You"
         prefix = "[PVT] [" .. sender .. " ➔ " .. targetName .. "]: "
         textFormatted = "<font color='#FF2A55' size='13'><b>" .. message .. "</b></font>"
         sysColor = Color3.fromRGB(255, 40, 80)
