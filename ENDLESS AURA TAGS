@@ -17,7 +17,7 @@ local Username = player.Name
 local playerGui = player:WaitForChild("PlayerGui", 10) or player:FindFirstChildOfClass("PlayerGui")
 local CUSTOM_LOGO_ID = "rbxassetid://129299711445020"
 
-local ROOM = "EA-CHAT"
+local ROOM = "EA-GLOBAL-CHAT"
 local PASSWORD = "6xrxDelnel7@/:.4!"
 local ENDPOINT = "wss://chatroom.openfun.app/ws"
 
@@ -27,6 +27,7 @@ local MSG_SOUND_ID = "rbxassetid://4590657391"
 local Socket = nil
 local SelectedPrivateUser = nil
 local ActiveUsersList = {}
+local ChatLogsHistory = {}
 
 if _G.AuraKillSwitch then
     _G.AuraKillSwitch()
@@ -36,7 +37,7 @@ _G.AuraState = {
     tagsEnabled = true,   
     auraEnabled = true,   
     animEnabled = true,   
-    chatEnabled = false, 
+    chatVisible = true, 
     hudVisible = true,
     emitters = {},
     currentTrack = nil
@@ -87,6 +88,10 @@ _G.AuraKillSwitch = function()
     
     if playerGui and playerGui:FindFirstChild("EndlessAuraChatUI") then
         playerGui:FindFirstChild("EndlessAuraChatUI"):Destroy()
+    end
+
+    if playerGui and playerGui:FindFirstChild("EAlogsUI") then
+        playerGui:FindFirstChild("EAlogsUI"):Destroy()
     end
 
     for _, p in ipairs(Players:GetPlayers()) do
@@ -221,7 +226,7 @@ local function createBox(name, text, withDot, interactive)
     if withDot then
         dot = Instance.new("Frame")
         dot.Size = UDim2.new(0, 5, 0, 5)
-        dot.BackgroundColor3 = Color3.fromRGB(120, 0, 0) 
+        dot.BackgroundColor3 = Color3.fromRGB(0, 255, 100) 
         dot.BorderSizePixel = 0
         dot.Parent = box
 
@@ -305,11 +310,11 @@ animLabel.MouseButton1Click:Connect(function()
     end
 end)
 
--- EA Chat UI Setup (Compact Bottom-Left Dark Red Theme)
+-- EA Chat UI Setup (Default ON)
 local ChatScreenGui = Instance.new("ScreenGui")
 ChatScreenGui.Name = "EndlessAuraChatUI"
 ChatScreenGui.ResetOnSpawn = false
-ChatScreenGui.Enabled = false
+ChatScreenGui.Enabled = true
 ChatScreenGui.Parent = playerGui
 
 local ChatUIFrame = Instance.new("Frame")
@@ -348,7 +353,7 @@ TextBox.Size = UDim2.new(1, -38, 1, -4)
 TextBox.Position = UDim2.new(0, 32, 0, 2)
 TextBox.BackgroundTransparency = 1
 TextBox.Font = Enum.Font.GothamMedium
-TextBox.PlaceholderText = "EA Chat (Type '/help' or '/pvt')"
+TextBox.PlaceholderText = "EA Global Chat (Type '/help' or '/Logs')"
 TextBox.PlaceholderColor3 = Color3.fromRGB(200, 100, 110)
 TextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 TextBox.TextSize = 10
@@ -411,6 +416,88 @@ UIListLayout.Parent = ScrollList
 UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 UIListLayout.Padding = UDim.new(0, 3)
 
+-- Separate Logs UI (/Logs)
+local LogsScreenGui = Instance.new("ScreenGui")
+LogsScreenGui.Name = "EAlogsUI"
+LogsScreenGui.ResetOnSpawn = false
+LogsScreenGui.Enabled = false
+LogsScreenGui.Parent = playerGui
+
+local LogsFrame = Instance.new("Frame")
+LogsFrame.Size = UDim2.new(0, 350, 0, 300)
+LogsFrame.Position = UDim2.new(0.5, -175, 0.5, -150)
+LogsFrame.BackgroundColor3 = Color3.fromRGB(15, 8, 10)
+LogsFrame.BackgroundTransparency = 0.1
+LogsFrame.BorderSizePixel = 0
+LogsFrame.Parent = LogsScreenGui
+
+local LogsCorner = Instance.new("UICorner")
+LogsCorner.CornerRadius = UDim.new(0, 8)
+LogsCorner.Parent = LogsFrame
+
+local LogsStroke = Instance.new("UIStroke")
+LogsStroke.Color = Color3.fromRGB(220, 20, 50)
+LogsStroke.Thickness = 1.5
+LogsStroke.Parent = LogsFrame
+
+local LogsTitle = Instance.new("TextLabel")
+LogsTitle.Size = UDim2.new(1, -30, 0, 30)
+LogsTitle.Position = UDim2.new(0, 10, 0, 5)
+LogsTitle.BackgroundTransparency = 1
+LogsTitle.Text = "EA Global Chat Logs"
+LogsTitle.TextColor3 = Color3.fromRGB(255, 100, 120)
+LogsTitle.Font = Enum.Font.GothamBold
+LogsTitle.TextSize = 14
+LogsTitle.TextXAlignment = Enum.TextXAlignment.Left
+LogsTitle.Parent = LogsFrame
+
+local CloseLogsBtn = Instance.new("TextButton")
+CloseLogsBtn.Size = UDim2.new(0, 24, 0, 24)
+CloseLogsBtn.Position = UDim2.new(1, -30, 0, 8)
+CloseLogsBtn.BackgroundColor3 = Color3.fromRGB(160, 20, 50)
+CloseLogsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseLogsBtn.Font = Enum.Font.GothamBold
+CloseLogsBtn.TextSize = 12
+CloseLogsBtn.Text = "X"
+CloseLogsBtn.Parent = LogsFrame
+
+local CloseLogsCorner = Instance.new("UICorner")
+CloseLogsCorner.CornerRadius = UDim.new(0, 4)
+CloseLogsCorner.Parent = CloseLogsBtn
+
+CloseLogsBtn.MouseButton1Click:Connect(function()
+    LogsScreenGui.Enabled = false
+end)
+
+local LogsScroll = Instance.new("ScrollingFrame")
+LogsScroll.Size = UDim2.new(1, -16, 1, -45)
+LogsScroll.Position = UDim2.new(0, 8, 0, 38)
+LogsScroll.BackgroundTransparency = 1
+LogsScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+LogsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+LogsScroll.ScrollBarThickness = 4
+LogsScroll.Parent = LogsFrame
+
+local LogsLayout = Instance.new("UIListLayout")
+LogsLayout.Parent = LogsScroll
+LogsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+LogsLayout.Padding = UDim.new(0, 4)
+
+local function AddLogEntry(text)
+    table.insert(ChatLogsHistory, text)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, 0, 0, 18)
+    lbl.AutomaticSize = Enum.AutomaticSize.Y
+    lbl.BackgroundTransparency = 1
+    lbl.TextColor3 = Color3.fromRGB(230, 200, 205)
+    lbl.Font = Enum.Font.Gotham
+    lbl.TextSize = 11
+    lbl.Text = text
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.TextWrapped = true
+    lbl.Parent = LogsScroll
+end
+
 local function PlayCustomSoundHelper(soundId, volume)
     pcall(function()
         local sound = Instance.new("Sound")
@@ -424,6 +511,7 @@ end
 
 local function DisplaySystemMessage(text, soundId)
     local fullFormatted = "<font color='#FF3355'><b>[EA System]:</b> " .. text .. "</font>"
+    AddLogEntry("[EA System]: " .. text)
     pcall(function()
         StarterGui:SetCore("ChatMakeSystemMessage", {
             Text = "[EA System]: " .. text,
@@ -447,7 +535,7 @@ local function DisplayChatMessage(sender, message, isPrivate, targetUser)
     local sysColor = Color3.fromRGB(255, 80, 110)
 
     if isPrivate then
-        local targetName = targetUser or SelectedPrivateUser or "You"
+        local targetName = targetUser or SelectedPrivateUser | "You"
         prefix = "[PVT] [" .. sender .. " ➔ " .. targetName .. "]: "
         textFormatted = "<font color='#FF2A55' size='13'><b>" .. message .. "</b></font>"
         sysColor = Color3.fromRGB(255, 40, 80)
@@ -456,6 +544,7 @@ local function DisplayChatMessage(sender, message, isPrivate, targetUser)
         textFormatted = "<font color='#FF7090' size='13'>" .. message .. "</font>"
     end
 
+    AddLogEntry(prefix .. message)
     local fullFormatted = "<font color='#FFFFFF'>" .. prefix .. "</font>" .. textFormatted
 
     pcall(function()
@@ -542,7 +631,6 @@ local function UpdateAllTagsVisibility()
 end
 
 local function ConnectWebSocket()
-    if not AuraState.chatEnabled then return end
     local success, sock = pcall(function()
         return WebSocket.connect(ENDPOINT)
     end)
@@ -551,7 +639,6 @@ local function ConnectWebSocket()
         Socket = sock
 
         Socket.OnMessage:Connect(function(RawMessage)
-            if not AuraState.chatEnabled then return end
             local Success, Data = pcall(function()
                 return HttpService:JSONDecode(tostring(RawMessage))
             end)
@@ -632,8 +719,10 @@ local function ConnectWebSocket()
         end)
 
         Socket.OnClose:Connect(function()
-            if AuraState.chatEnabled then
-                DisplaySystemMessage("Disconnected from OpenFun.")
+            if isScriptAlive then
+                DisplaySystemMessage("Disconnected from OpenFun. Reconnecting...")
+                task.wait(3)
+                ConnectWebSocket()
             end
         end)
 
@@ -648,12 +737,15 @@ local function ConnectWebSocket()
 
         DisplaySystemMessage("Connecting to " .. ROOM .. "...")
     else
-        DisplaySystemMessage("Failed to connect to WebSocket.")
+        task.wait(3)
+        ConnectWebSocket()
     end
 end
 
+ConnectWebSocket()
+
 local function BroadcastMessage(text)
-    if not AuraState.chatEnabled or not Socket then return end
+    if not Socket then return end
     DisplayChatMessage(Username, text, SelectedPrivateUser ~= nil, SelectedPrivateUser)
     pcall(function()
         Socket:Send(HttpService:JSONEncode({
@@ -668,7 +760,6 @@ local function BroadcastMessage(text)
 end
 
 local function OnSubmit()
-    if not AuraState.chatEnabled then return end
     local text = TextBox.Text
     if text == "" or #text:gsub("%s+", "") == 0 then return end
 
@@ -689,6 +780,12 @@ local function OnSubmit()
         return
     end
 
+    if lowerText == "/logs" then
+        TextBox.Text = ""
+        LogsScreenGui.Enabled = not LogsScreenGui.Enabled
+        return
+    end
+
     if lowerText == "/clear" or lowerText == "/cls" then
         TextBox.Text = ""
         pcall(function()
@@ -706,8 +803,9 @@ local function OnSubmit()
     if lowerText == "/help" then
         TextBox.Text = ""
         DisplaySystemMessage("--- EA CHAT COMMANDS ---")
-        DisplaySystemMessage("• PVT / /pvt - Open Script Users list for private chat")
+        DisplaySystemMessage("• PVT / /pvt - Open Script Users list")
         DisplaySystemMessage("• /all - Switch back to Public Chat")
+        DisplaySystemMessage("• /logs - Open Chat Logs UI")
         DisplaySystemMessage("• /clear - Clear chat screen")
         return
     end
@@ -718,22 +816,16 @@ end
 
 TextBox.FocusLost:Connect(function(enter) if enter then OnSubmit() end end)
 
-local _, chatLabel, chatDot = createBox("ChatToggle", "Eᴀ Cʜᴀᴛ Øғғ", true, true)
+local _, chatLabel, chatDot = createBox("ChatToggle", "Eᴀ Cʜᴀᴛ Øɴ", true, true)
+chatDot.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
 chatLabel.MouseButton1Click:Connect(function()
     if not isScriptAlive then return end
     playCustomSound(107406973902030)
-    AuraState.chatEnabled = not AuraState.chatEnabled
-    chatLabel.Text = AuraState.chatEnabled and "Eᴀ Cʜᴀᴛ Øɴ" or "Eᴀ Cʜᴀᴛ Øғғ"
-    chatDot.BackgroundColor3 = AuraState.chatEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(120, 0, 0)
-    ChatScreenGui.Enabled = AuraState.chatEnabled
-
-    if AuraState.chatEnabled then
-        ConnectWebSocket()
-    else
-        if Socket then
-            pcall(function() Socket:Close() end)
-            Socket = nil
-        end
+    AuraState.chatVisible = not AuraState.chatVisible
+    chatLabel.Text = AuraState.chatVisible and "Eᴀ Cʜᴀᴛ Øɴ" or "Eᴀ Cʜᴀᴛ Øғғ"
+    chatDot.BackgroundColor3 = AuraState.chatVisible and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(120, 0, 0)
+    ChatScreenGui.Enabled = AuraState.chatVisible
+    if not AuraState.chatVisible then
         UserMenu.Visible = false
     end
 end)
