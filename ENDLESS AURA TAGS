@@ -1,4 +1,4 @@
--- LocalScript
+-- LocalScript: ENDLESS AURA (FINAL TAG & REALTIME SYNC FIX)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -109,6 +109,7 @@ if playerGui and playerGui:FindFirstChild("AuraHUD") then
     playerGui:FindFirstChild("AuraHUD"):Destroy()
 end
 
+-- ==================== TOP RIGHT HUD ====================
 local hud = Instance.new("ScreenGui")
 hud.Name = "AuraHUD"
 hud.ResetOnSpawn = false
@@ -184,12 +185,14 @@ barPadding.Parent = bar
 
 local function playCustomSound(soundId)
     if not isScriptAlive or not hud then return end
-    local sound = Instance.new("Sound")
-    sound.SoundId = "rbxassetid://" .. tostring(soundId)
-    sound.Volume = 0.6
-    sound.Parent = hud
-    sound:Play()
-    Debris:AddItem(sound, 3)
+    pcall(function()
+        local sound = Instance.new("Sound")
+        sound.SoundId = "rbxassetid://" .. tostring(soundId)
+        sound.Volume = 0.6
+        sound.Parent = hud
+        sound:Play()
+        Debris:AddItem(sound, 3)
+    end)
 end
 
 local function createBox(name, text, withDot, interactive)
@@ -251,21 +254,32 @@ end
 
 local _, tagsLabel, tagsDot = createBox("TagsToggle", "Tᴀɢs Øɴ", true, true)
 tagsDot.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
+
+local UpdateAllTagsVisibility
+
+UpdateAllTagsVisibility = function()
+    -- Always ensure local player is active in list
+    ActiveUsersList[Username] = tick()
+    for _, p in ipairs(Players:GetPlayers()) do
+        local char = p.Character
+        local head = char and char:FindFirstChild("Head")
+        if head then
+            local tag = head:FindFirstChild("OverheadTag")
+            if tag then
+                local shouldShow = AuraState.tagsEnabled and (ActiveUsersList[p.Name] ~= nil)
+                tag.Enabled = shouldShow
+            end
+        end
+    end
+end
+
 tagsLabel.MouseButton1Click:Connect(function()
     if not isScriptAlive then return end
     playCustomSound(107406973902030)
     AuraState.tagsEnabled = not AuraState.tagsEnabled
     tagsLabel.Text = AuraState.tagsEnabled and "Tᴀɢs Øɴ" or "Tᴀɢs Øғғ"
     tagsDot.BackgroundColor3 = AuraState.tagsEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(120, 0, 0)
-    
-    for _, p in ipairs(Players:GetPlayers()) do
-        local char = p.Character
-        local head = char and char:FindFirstChild("Head")
-        if head then
-            local tag = head:FindFirstChild("OverheadTag")
-            if tag then tag.Enabled = AuraState.tagsEnabled and (p == player or ActiveUsersList[p.Name]) end
-        end
-    end
+    UpdateAllTagsVisibility()
 end)
 
 local _, auraLabel, auraDot = createBox("AuraToggle", "Aᴜʀᴀ Øɴ", true, true)
@@ -310,7 +324,7 @@ animLabel.MouseButton1Click:Connect(function()
     end
 end)
 
--- EA Chat UI Setup (Default Enabled)
+-- ==================== CHAT UI SETUP ====================
 local ChatScreenGui = Instance.new("ScreenGui")
 ChatScreenGui.Name = "EndlessAuraChatUI"
 ChatScreenGui.ResetOnSpawn = false
@@ -356,7 +370,7 @@ TextBox.Size = UDim2.new(1, -38, 1, -4)
 TextBox.Position = UDim2.new(0, 32, 0, 2)
 TextBox.BackgroundTransparency = 1
 TextBox.Font = Enum.Font.GothamMedium
-TextBox.PlaceholderText = "EA Chat (Type '/help' or '/Logs')"
+TextBox.PlaceholderText = "EA Chat (Type '/pvt' or '/help')"
 TextBox.PlaceholderColor3 = Color3.fromRGB(200, 100, 110)
 TextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 TextBox.TextSize = 10
@@ -382,7 +396,7 @@ TagCorner.Parent = TargetTag
 local UserMenu = Instance.new("Frame")
 UserMenu.Name = "UserMenu"
 UserMenu.Size = UDim2.new(0, 180, 0, 130)
-UserMenu.Position = UDim2.new(0, 0, 1, 5)
+UserMenu.Position = UDim2.new(0, 0, 0, -135)
 UserMenu.BackgroundColor3 = Color3.fromRGB(20, 8, 12)
 UserMenu.BackgroundTransparency = 0.15
 UserMenu.Visible = false
@@ -419,7 +433,6 @@ UIListLayout.Parent = ScrollList
 UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 UIListLayout.Padding = UDim.new(0, 3)
 
--- Separate Logs UI (/Logs)
 local LogsScreenGui = Instance.new("ScreenGui")
 LogsScreenGui.Name = "EAlogsUI"
 LogsScreenGui.ResetOnSpawn = false
@@ -623,19 +636,6 @@ TargetTag.MouseButton1Click:Connect(function()
     DisplaySystemMessage("Switched back to Public Global Chat.")
 end)
 
-local function UpdateAllTagsVisibility()
-    for _, p in ipairs(Players:GetPlayers()) do
-        local char = p.Character
-        local head = char and char:FindFirstChild("Head")
-        if head then
-            local tag = head:FindFirstChild("OverheadTag")
-            if tag then
-                tag.Enabled = AuraState.tagsEnabled and (p == player or ActiveUsersList[p.Name])
-            end
-        end
-    end
-end
-
 local function ConnectWebSocket()
     local success, sock = pcall(function()
         return WebSocket.connect(ENDPOINT)
@@ -654,39 +654,29 @@ local function ConnectWebSocket()
             if Data.type == "joined" then
                 DisplaySystemMessage("Joined room: " .. tostring(Data.room), JOIN_SOUND_ID)
 
+                -- REGISTER LOCAL & HISTORY USERS INSTANTLY
+                ActiveUsersList[Username] = tick()
                 if type(Data.history) == "table" then
                     for _, Entry in ipairs(Data.history) do
-                        local Payload = Entry.payload
-                        if type(Payload) == "table" and Payload.type == "chat" and type(Payload.text) == "string" then
-                            local sender = tostring(Entry.username)
-                            local message = Payload.text
-                            local target = Payload.target
-
+                        local sender = tostring(Entry.username)
+                        if sender and sender ~= "" then
                             ActiveUsersList[sender] = tick()
-                            UpdateAllTagsVisibility()
-
-                            if sender ~= Username then
-                                if target and target ~= "" then
-                                    if target == Username then
-                                        DisplayChatMessage(sender, message, true, Username)
-                                    end
-                                else
-                                    DisplayChatMessage(sender, message, false)
-                                end
-                            end
                         end
                     end
                 end
+                UpdateAllTagsVisibility()
 
             elseif Data.type == "say" then
-                local Payload = Data.payload
-                if type(Payload) == "table" and Payload.type == "chat" and type(Payload.text) == "string" then
-                    local sender = tostring(Data.username)
-                    local message = Payload.text
-                    local target = Payload.target
-
+                local sender = tostring(Data.username)
+                if sender and sender ~= "" then
                     ActiveUsersList[sender] = tick()
                     UpdateAllTagsVisibility()
+                end
+
+                local Payload = Data.payload
+                if type(Payload) == "table" and Payload.type == "chat" and type(Payload.text) == "string" then
+                    local message = Payload.text
+                    local target = Payload.target
 
                     if sender ~= Username then
                         if target and target ~= "" then
@@ -703,7 +693,7 @@ local function ConnectWebSocket()
                 if Data.username then
                     local joinedUser = tostring(Data.username)
                     ActiveUsersList[joinedUser] = tick()
-                    UpdateAllTagsVisibility()
+                    UpdateAllTagsVisibility() -- INSTANT UPDATE UPON JOIN
                     if joinedUser ~= Username then
                         DisplaySystemMessage(joinedUser .. " joined EA-CHAT!", JOIN_SOUND_ID)
                     end
@@ -750,8 +740,29 @@ end
 
 ConnectWebSocket()
 
+-- PERIODIC SYNC HEARTBEAT TO ENSURE TAGS NEVER DISAPPEAR
+task.spawn(function()
+    while isScriptAlive do
+        task.wait(2)
+        if Socket then
+            pcall(function()
+                Socket:Send(HttpService:JSONEncode({
+                    type = "say",
+                    payload = {
+                        type = "heartbeat",
+                        text = "ping"
+                    }
+                }))
+            end)
+        end
+        UpdateAllTagsVisibility()
+    end
+end)
+
 local function BroadcastMessage(text)
     if not Socket then return end
+    ActiveUsersList[Username] = tick()
+    UpdateAllTagsVisibility()
     DisplayChatMessage(Username, text, SelectedPrivateUser ~= nil, SelectedPrivateUser)
     pcall(function()
         Socket:Send(HttpService:JSONEncode({
@@ -769,9 +780,10 @@ local function OnSubmit()
     local text = TextBox.Text
     if text == "" or #text:gsub("%s+", "") == 0 then return end
 
-    local lowerText = string.lower(text)
+    local trimmed = text:match("^%s*(.-)%s*$")
+    local lowerText = string.lower(trimmed)
 
-    if lowerText == "pvt" or lowerText == "/pvt" then
+    if lowerText == "/pvt" then
         TextBox.Text = ""
         RefreshUserMenu()
         UserMenu.Visible = not UserMenu.Visible
@@ -809,7 +821,7 @@ local function OnSubmit()
     if lowerText == "/help" then
         TextBox.Text = ""
         DisplaySystemMessage("--- EA CHAT COMMANDS ---")
-        DisplaySystemMessage("• PVT / /pvt - Open Script Users list")
+        DisplaySystemMessage("• /pvt - Open Script Users list")
         DisplaySystemMessage("• /all - Switch back to Public Chat")
         DisplaySystemMessage("• /logs - Open Chat Logs UI")
         DisplaySystemMessage("• /clear - Clear chat screen")
@@ -876,6 +888,7 @@ task.spawn(function()
     end
 end)
 
+-- ==================== OVERHEAD TAG & AURA SETUP ====================
 local function setup(character, p)
     if not isScriptAlive or not character or not character.Parent then return end
     
@@ -909,7 +922,7 @@ local function setup(character, p)
     billboard.StudsOffset = Vector3.new(0, 2.9, 0)
     billboard.AlwaysOnTop = true
     billboard.MaxDistance = math.huge
-    billboard.Enabled = AuraState.tagsEnabled and (p == player or ActiveUsersList[p.Name])
+    billboard.Enabled = AuraState.tagsEnabled and (p == player or ActiveUsersList[p.Name] ~= nil)
     billboard.Parent = head
 
     local frame = Instance.new("Frame")
@@ -973,7 +986,7 @@ local function setup(character, p)
         end
         rotAngle = (rotAngle + (90 * dt)) % 360
         if tagLogoImage and tagLogoImage.Parent then tagLogoImage.Rotation = rotAngle end
-        billboard.Enabled = AuraState.tagsEnabled and (p == player or ActiveUsersList[p.Name])
+        billboard.Enabled = AuraState.tagsEnabled and (ActiveUsersList[p.Name] ~= nil)
     end)
 
     if p == player then
