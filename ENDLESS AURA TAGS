@@ -1,4 +1,4 @@
--- LocalScript: ENDLESS AURA (FINAL TAG & REALTIME SYNC FIX)
+-- LocalScript: ENDLESS AURA (BULLETPROOF TAG & AVATAR FIX)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -255,10 +255,10 @@ end
 local _, tagsLabel, tagsDot = createBox("TagsToggle", "Tᴀɢs Øɴ", true, true)
 tagsDot.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
 
-local UpdateAllTagsVisibility
+-- Forward declaration
+local setup
 
-UpdateAllTagsVisibility = function()
-    -- Always ensure local player is active in list
+local UpdateAllTagsVisibility = function()
     ActiveUsersList[Username] = tick()
     for _, p in ipairs(Players:GetPlayers()) do
         local char = p.Character
@@ -266,8 +266,10 @@ UpdateAllTagsVisibility = function()
         if head then
             local tag = head:FindFirstChild("OverheadTag")
             if tag then
-                local shouldShow = AuraState.tagsEnabled and (ActiveUsersList[p.Name] ~= nil)
-                tag.Enabled = shouldShow
+                tag.Enabled = AuraState.tagsEnabled and (ActiveUsersList[p.Name] ~= nil)
+            elseif AuraState.tagsEnabled and (ActiveUsersList[p.Name] ~= nil) then
+                -- Re-create tag instantly if it got deleted due to avatar change
+                task.spawn(setup, char, p)
             end
         end
     end
@@ -654,7 +656,6 @@ local function ConnectWebSocket()
             if Data.type == "joined" then
                 DisplaySystemMessage("Joined room: " .. tostring(Data.room), JOIN_SOUND_ID)
 
-                -- REGISTER LOCAL & HISTORY USERS INSTANTLY
                 ActiveUsersList[Username] = tick()
                 if type(Data.history) == "table" then
                     for _, Entry in ipairs(Data.history) do
@@ -693,7 +694,7 @@ local function ConnectWebSocket()
                 if Data.username then
                     local joinedUser = tostring(Data.username)
                     ActiveUsersList[joinedUser] = tick()
-                    UpdateAllTagsVisibility() -- INSTANT UPDATE UPON JOIN
+                    UpdateAllTagsVisibility()
                     if joinedUser ~= Username then
                         DisplaySystemMessage(joinedUser .. " joined EA-CHAT!", JOIN_SOUND_ID)
                     end
@@ -731,6 +732,20 @@ local function ConnectWebSocket()
             }))
         end)
 
+        task.delay(0.5, function()
+            if Socket then
+                pcall(function()
+                    Socket:Send(HttpService:JSONEncode({
+                        type = "say",
+                        payload = {
+                            type = "sync",
+                            text = Username .. " online"
+                        }
+                    }))
+                end)
+            end
+        end)
+
         DisplaySystemMessage("Connecting to " .. ROOM .. "...")
     else
         task.wait(3)
@@ -740,16 +755,16 @@ end
 
 ConnectWebSocket()
 
--- PERIODIC SYNC HEARTBEAT TO ENSURE TAGS NEVER DISAPPEAR
 task.spawn(function()
     while isScriptAlive do
         task.wait(2)
+        ActiveUsersList[Username] = tick()
         if Socket then
             pcall(function()
                 Socket:Send(HttpService:JSONEncode({
                     type = "say",
                     payload = {
-                        type = "heartbeat",
+                        type = "sync",
                         text = "ping"
                     }
                 }))
@@ -889,15 +904,15 @@ task.spawn(function()
 end)
 
 -- ==================== OVERHEAD TAG & AURA SETUP ====================
-local function setup(character, p)
+setup = function(character, p)
     if not isScriptAlive or not character or not character.Parent then return end
     
-    local head = character:WaitForChild("Head", 4)
-    local humanoid = character:WaitForChild("Humanoid", 4)
-    local hrp = character:WaitForChild("HumanoidRootPart", 4)
+    local head = character:WaitForChild("Head", 5)
+    local humanoid = character:WaitForChild("Humanoid", 5)
+    local hrp = character:WaitForChild("HumanoidRootPart", 5)
     
     if not head or not humanoid or not hrp then return end
-    local animator = humanoid:WaitForChild("Animator", 4) or humanoid:FindFirstChildOfClass("Animator")
+    local animator = humanoid:WaitForChild("Animator", 5) or humanoid:FindFirstChildOfClass("Animator")
     if not animator then return end
 
     for _, child in ipairs(head:GetChildren()) do
@@ -922,7 +937,7 @@ local function setup(character, p)
     billboard.StudsOffset = Vector3.new(0, 2.9, 0)
     billboard.AlwaysOnTop = true
     billboard.MaxDistance = math.huge
-    billboard.Enabled = AuraState.tagsEnabled and (p == player or ActiveUsersList[p.Name] ~= nil)
+    billboard.Enabled = AuraState.tagsEnabled and (ActiveUsersList[p.Name] ~= nil)
     billboard.Parent = head
 
     local frame = Instance.new("Frame")
@@ -1156,10 +1171,24 @@ for _, p in ipairs(Players:GetPlayers()) do
     p.CharacterAdded:Connect(function(char)
         task.spawn(setup, char, p)
     end)
+    p.CharacterAppearanceLoaded:Connect(function(char)
+        task.spawn(setup, char, p)
+    end)
 end
 
 Players.PlayerAdded:Connect(function(p)
     p.CharacterAdded:Connect(function(char)
         task.spawn(setup, char, p)
     end)
+    p.CharacterAppearanceLoaded:Connect(function(char)
+        task.spawn(setup, char, p)
+    end)
+end)
+
+-- CONTINUOUS SAFETY CHECK LOOP TO ENSURE TAGS NEVER DISAPPEAR
+task.spawn(function()
+    while isScriptAlive do
+        task.wait(1)
+        UpdateAllTagsVisibility()
+    end
 end)
